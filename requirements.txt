@@ -1,2 +1,4 @@
 gigachat
 python-dotenv
+rich
+ddgs

@@ -1,46 +1,56 @@
-import os
-
 from dotenv import load_dotenv
 
 from gigachat import GigaChat
-from gigachat.models import Chat, Messages, MessagesRole
+from gigachat.models import Messages, MessagesRole
 
-from agent import get_chat
-from tools import FUNCTIONS
+from rich.console import Console
 
-load_dotenv()
-client = GigaChat(verify_ssl_certs=False)
+from agent import send_message
+from commands import Command, CommandParser
+from prompt import system_prompt
 
+tokens = 0
 messages = []
-
-system_prompt = f'''
-Ты — автономный исполнитель. Тебе доступны инструменты для выполнения задач.
-
-Твой протокол:
-1. Анализ: Если в запросе недостаточно данных для выполнения, используй инструменты поиска/инспекции (ls, поиск, get и т.д.).
-2. Точность: При передаче аргументов в инструменты используй ТОЧНЫЕ значения из ответов предыдущих инструментов. Никаких правок и сокращений.
-3. Рекурсия: Если инструмент вернул ошибку, проанализируй её, исправь аргументы и попробуй снова.
-4. Финал: Когда задача выполнена, дай краткий ответ.
-
-Текущий контекст: {os.getcwd()}
-'''
-
-messages.append(Messages(role=MessagesRole.SYSTEM, content=system_prompt))
-
-while True:
-    userprompt = input('> ')
-    if userprompt.lower() in ('exit', 'quit', '/exit', '/quit'):
-        break
+@Command('clear', 'reset')
+def clear_cmd(client: GigaChat, console: Console):
+    global messages, tokens
     
-    messages.append(Messages(role=MessagesRole.USER, content=userprompt))
+    messages = [Messages(role=MessagesRole.SYSTEM, content=system_prompt)]
+    tokens = 0
+
+@Command('quit', 'exit')
+def quit_cmd(client: GigaChat, console: Console):
+    console.print('[cyan]Bye-bye![/cyan]')
+    return 1
+
+def main():
+    global messages, tokens
     
-    chat = Chat(
-        messages=messages,
-        functions=FUNCTIONS
-    )
+    load_dotenv()
     
-    chat = get_chat(chat, client)
+    console = Console(highlight=False)
+    client = GigaChat(verify_ssl_certs=False,
+                      model='GigaChat-2-Pro')
     
-    messages = chat.messages
+    parser = CommandParser(client, console)
+
+    clear_cmd(client, console)
     
-    print(messages[-1].content)
+    while True:
+        console.print(f'[gray42] {(tokens / 1000):.1f}k tokens[/gray42]')
+        user_prompt = console.input('[bold color(135)]> [/bold color(135)]')
+
+        if user_prompt.startswith('/'):
+            if parser.parse(user_prompt[1:]):
+                break
+            else:
+                continue
+        
+        messages.append(Messages(role=MessagesRole.USER, content=user_prompt))
+        
+        messages, used_tokens = send_message(messages, client)
+        
+        tokens += used_tokens
+
+if __name__ == '__main__':
+    main()

@@ -3,6 +3,7 @@ import os
 from typing import Any
 
 from gigachat.models import Function, FunctionParameters
+from ddgs import DDGS
 
 write_function = Function(
     name='write',
@@ -53,6 +54,21 @@ ls_function = Function(
     ),
 )
 
+search_function = Function(
+    name='search',
+    description='Search the web',
+    parameters=FunctionParameters(
+        type='object',
+        properties={  # type: ignore
+            'query': {
+                'type': 'string',
+                'description': 'Query to search for.'
+            },
+        },
+        required=['query'],
+    ),
+)
+
 def write_tool(path: str, content: str) -> dict[str, Any]:
     with open(path, 'w', encoding='utf-8') as f:
         f.write(content)
@@ -78,14 +94,28 @@ def ls_tool(path: str) -> dict[str, Any]:
     
     return {'files': files_info}
 
+def search_tool(query: str) -> dict[str, Any]:
+    with DDGS() as ddgs:
+        results = list(ddgs.text(query, max_results=5))
+    
+    return {'results': results}
+
 FUNCTIONS = [
     write_function,
     read_function,
-    ls_function
+    ls_function,
+    search_function
 ]
 
 FUNCTION_MAP = {
     'write': write_tool,
     'read': read_tool,
-    'ls': ls_tool
+    'ls': ls_tool,
+    'search': search_tool
 }
+
+SAFE_FUNCTIONS = [
+    'ls',
+    'read',
+    'search'
+]

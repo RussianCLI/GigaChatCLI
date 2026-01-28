@@ -1,2 +1,5 @@
 gigachat
 python-dotenv
+rich
+duckduckgo_search
+prompt_toolkit

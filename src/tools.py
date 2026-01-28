@@ -1,4 +1,9 @@
 import os
+import re
+import subprocess
+
+import urllib.request
+import urllib.parse
 
 from typing import Any
 
@@ -6,17 +11,17 @@ from gigachat.models import Function, FunctionParameters
 
 write_function = Function(
     name='write',
-    description='Write to a file',
+    description='Запись в файл',
     parameters=FunctionParameters(
         type='object',
         properties={  # type: ignore
             'path': {
                 'type': 'string',
-                'description': 'Relative or absolute path to the file to write.'
+                'description': 'Относительный или абсолютный путь к файлу.'
             },
             'content': {
                 'type': 'string',
-                'description': 'Content to write to the file.'
+                'description': 'Новое содержимое файла.'
             }
         },
         required=['path', 'content'],
@@ -25,13 +30,13 @@ write_function = Function(
 
 read_function = Function(
     name='read',
-    description='Read a file',
+    description='Прочитать содержимое файла',
     parameters=FunctionParameters(
         type='object',
         properties={  # type: ignore
             'path': {
                 'type': 'string',
-                'description': 'Relative or absolute path to the file to read.'
+                'description': 'Относительный или абсолютный путь к файлу.'
             },
         },
         required=['path'],
@@ -40,16 +45,46 @@ read_function = Function(
 
 ls_function = Function(
     name='ls',
-    description='List files in a directory',
+    description='Просмотреть содержимое директории',
     parameters=FunctionParameters(
         type='object',
         properties={  # type: ignore
             'path': {
                 'type': 'string',
-                'description': 'Relative or absolute path of directory to list. Pass "." to list current directory.'
+                'description': 'Относительный или абсолютный путь к директории.'
             },
         },
         required=['path'],
+    ),
+)
+
+web_search_function = Function(
+    name='web_search',
+    description='Поиск в интернете',
+    parameters=FunctionParameters(
+        type='object',
+        properties={  # type: ignore
+            'query': {
+                'type': 'string',
+                'description': 'Поисковый запрос.'
+            },
+        },
+        required=['query'],
+    ),
+)
+
+shell_function = Function(
+    name='shell',
+    description='Запуск команды в терминале',
+    parameters=FunctionParameters(
+        type='object',
+        properties={  # type: ignore
+            'command': {
+                'type': 'string',
+                'description': 'Команда для выполнения.'
+            },
+        },
+        required=['command'],
     ),
 )
 
@@ -78,14 +113,40 @@ def ls_tool(path: str) -> dict[str, Any]:
     
     return {'files': files_info}
 
+def web_search_tool(query: str) -> dict[str, Any]:
+    encoded_query = urllib.parse.quote(query)
+    url = f'https://html.duckduckgo.com/html/?q={encoded_query}'
+    headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) ...'}
+        
+    request = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(request, timeout=10) as response:
+        html = response.read().decode('utf-8')
+
+    links = re.findall(r'<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)</a>', html)
+    results = []
+    for i, (link, title) in enumerate(links[:5]):
+        results.append(f"[{i+1}] {title.strip()}\nURL: {link}")
+            
+    return {'results': '\n\n'.join(results)}
+
+def shell_tool(command: str) -> dict[str, Any]:
+    result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=60)
+    output = result.stdout + (f"\n[stderr]\n{result.stderr}" if result.stderr else "")
+    
+    return {"success": result.returncode == 0, "output": output or "(no output)", "code": result.returncode}
+
 FUNCTIONS = [
     write_function,
     read_function,
-    ls_function
+    ls_function,
+    web_search_function,
+    shell_function
 ]
 
 FUNCTION_MAP = {
     'write': write_tool,
     'read': read_tool,
-    'ls': ls_tool
+    'ls': ls_tool,
+    'web_search': web_search_tool,
+    'shell': shell_tool,
 }

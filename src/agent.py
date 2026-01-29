@@ -12,6 +12,7 @@ from rich.spinner import Spinner
 from rich.columns import Columns
 
 from tools import FUNCTIONS, FUNCTION_MAP, SAFE_FUNCTIONS
+from data import Data
 
 console = Console()
 
@@ -38,16 +39,16 @@ def ask_calling(tool_name: str, tool_args: dict[str, Any]) -> bool:
     console.print('[green]✓[/green] ' + calling_str)
     return True
 
-def send_message(messages: list[Messages], client: GigaChat) -> tuple[list[Messages], int]:
+def send_message(data: Data) -> tuple[list[Messages], int]:
     spinner = Spinner('dots', style='color(140)')
     
     usage = 0
     
     while True:
-        chat = Chat(messages=messages,
+        chat = Chat(messages=data.messages,
                     functions=FUNCTIONS)
             
-        stream = client.stream(chat)
+        stream = data.client.stream(chat)
 
         full_content = ''
         pending_function_call = None
@@ -58,7 +59,7 @@ def send_message(messages: list[Messages], client: GigaChat) -> tuple[list[Messa
             for chunk in stream:
                 delta = chunk.choices[0].delta
                 
-                if delta.content:
+                if delta.content and '<|' not in delta.content and '|>' not in delta.content:
                     if not full_content:
                         print()
                     
@@ -72,7 +73,7 @@ def send_message(messages: list[Messages], client: GigaChat) -> tuple[list[Messa
                     usage += chunk.usage.total_tokens
             
         if pending_function_call:
-            messages.append(Messages(
+            data.messages.append(Messages(
                 role=MessagesRole.ASSISTANT,
                 content=full_content,
                 function_call=pending_function_call
@@ -84,7 +85,7 @@ def send_message(messages: list[Messages], client: GigaChat) -> tuple[list[Messa
             args = func_call.arguments or {}
                     
             if not ask_calling(name, args):
-                messages.append(Messages(
+                data.messages.append(Messages(
                     role=MessagesRole.FUNCTION,
                     name=name,
                     content=json.dumps({'success': False, 'reason': 'User rejected the function.'})
@@ -98,7 +99,7 @@ def send_message(messages: list[Messages], client: GigaChat) -> tuple[list[Messa
             except Exception as e:
                 result = {'success': False, 'error': str(e)}
                 
-            messages.append(Messages(
+            data.messages.append(Messages(
                 role=MessagesRole.FUNCTION,
                 name=name,
                 content=json.dumps(result)
@@ -106,6 +107,6 @@ def send_message(messages: list[Messages], client: GigaChat) -> tuple[list[Messa
 
             continue
         else:
-            messages.append(Messages(role=MessagesRole.ASSISTANT, content=full_content))
+            data.messages.append(Messages(role=MessagesRole.ASSISTANT, content=full_content))
             print()
-            return messages, usage
+            return data.messages, usage

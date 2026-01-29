@@ -1,7 +1,5 @@
 import os
 
-from pathlib import Path
-
 from dotenv import load_dotenv
 
 from gigachat import GigaChat
@@ -11,41 +9,43 @@ from rich.console import Console
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.styles import Style
 
 from agent import send_message
-from commands import Command, CommandParser
+from commands import Command, CommandParser, clear_cmd
 from prompt import system_prompt
-
-tokens = 0
-messages = []
-@Command('clear', 'reset')
-def clear_cmd(client: GigaChat, console: Console):
-    global messages, tokens
-    
-    messages = [Messages(role=MessagesRole.SYSTEM, content=system_prompt)]
-    tokens = 0
-
-@Command('quit', 'exit')
-def quit_cmd(client: GigaChat, console: Console):
-    console.print('[cyan]Bye-bye![/cyan]')
-    return 1
+from data import Data, dotenv_path
 
 def main():
-    global messages, tokens
-    
-    load_dotenv(dotenv_path=Path.home() / '.gigachat')
+    load_dotenv(dotenv_path=dotenv_path)
     
     console = Console(highlight=False)
     client = GigaChat(verify_ssl_certs=False,
                       model=os.getenv('GIGACHAT_MODEL'))
+    data = Data(client, console, [], 0)
     
-    parser = CommandParser(client, console)
-    session = PromptSession()
+    parser = CommandParser(data)
+    
+    command_list = []
+    for cmd in Command.commands:
+        command_list.append(f'/{cmd.name}')
+            
+    completer = WordCompleter(command_list, ignore_case=True, sentence=True)
+    
+    style = Style.from_dict({
+        'completion-menu.completion': 'bg:default #eeeeee',
+        'completion-menu.completion.current': 'bg:default #af87d7',
+        'scrollbar.background': 'bg:default',
+        'scrollbar.button': 'bg:default',
+    })
+    
+    session = PromptSession(completer=completer, style=style, complete_while_typing=True)
 
-    clear_cmd(client, console)
+    clear_cmd(data)
     
     while True:
-        console.print(f'[gray42] {(tokens / 1000):.1f}k tokens[/gray42]')
+        data.console.print(f'[gray42] {(data.used_tokens / 1000):.1f}k tokens[/gray42]')
         try:
             user_prompt = session.prompt(HTML('<b><style fg="#af87d7">> </style></b>'))
         except (KeyboardInterrupt, EOFError):
@@ -55,13 +55,14 @@ def main():
             if parser.parse(user_prompt[1:]):
                 break
             else:
+                data.console.print()
                 continue
         
-        messages.append(Messages(role=MessagesRole.USER, content=user_prompt))
+        data.messages.append(Messages(role=MessagesRole.USER, content=user_prompt))
         
-        messages, used_tokens = send_message(messages, client)
+        data.messages, used_tokens = send_message(data)
         
-        tokens += used_tokens
+        data.used_tokens += used_tokens
 
 if __name__ == '__main__':
     main()

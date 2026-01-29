@@ -1,8 +1,12 @@
 import os
+import json
 
-from rich.table import Table
+from pathlib import Path
 
 from dotenv import set_key
+
+from rich.table import Table
+from rich.markdown import Markdown
 
 from gigachat import GigaChat, Messages, MessagesRole
 
@@ -28,7 +32,6 @@ class CommandParser:
     
     def parse(self, text: str) -> int:
         '''Parse commands. Returns signals:
-        0 - do 'continue'
         1 - do 'break' '''
         
         if not text.strip():
@@ -72,7 +75,7 @@ def model_cmd(data: Data, *args):
     if not args:
         current_model = os.getenv('GIGACHAT_MODEL') or 'GigaChat'
         data.console.print(f'Current model is [bold color(135)]{current_model}[/bold color(135)]')
-        return 0
+        return
     
     model = args[0]
     models = [model.id_ for model in data.client.get_models().data]
@@ -80,7 +83,7 @@ def model_cmd(data: Data, *args):
     if model not in models:
         models_str = '\n'.join(models)
         data.console.print(f'[red]No such model![/red] Models available:\n[color(135)]{models_str}[color(135)]')
-        return 0
+        return
     
     data.client = GigaChat(verify_ssl_certs=False,
                            model=model)
@@ -108,3 +111,68 @@ def help_cmd(data: Data):
         table.add_row(namestring, docstring)
     
     data.console.print(table)
+
+@Command('save')
+def save_cmd(data: Data, *args):
+    '''save the current dialog. save {name}'''
+    
+    if not args:
+        data.console.print('[red]Usage: save {name}[/red]')
+        return
+    name = args[0]
+    
+    dirpath = Path.home() / '.gigachat-dialogs'
+    os.makedirs(dirpath, exist_ok=True)
+    
+    filepath = dirpath / name
+    
+    dump_data = {
+        'messages': [m.model_dump(exclude_none=True) for m in data.messages],
+        'used_tokens': data.used_tokens
+    }
+    
+    with open(filepath, 'w') as f:
+        json.dump(dump_data, f, ensure_ascii=False, indent=4)
+    
+    data.console.print(f'[bold][color(140)]Chat was successfully saved into [/bold]{dirpath / name}[/color(140)]')
+
+@Command('load', 'resume')
+def load_cmd(data: Data, *args):
+    '''load a saved dialog. load {name}'''
+    
+    if not args:
+        data.console.print('[red]Usage: load {name}[/red]')
+        return
+    name = args[0]
+    
+    filepath = Path.home() / '.gigachat-dialogs' / name
+    if not filepath.exists():
+        data.console.print(f'[red]Chat "{name}" not found![/red]')
+        return
+    
+    with open(filepath, 'r') as f:
+        dump_data = json.load(f)
+    
+    clear_cmd(data)
+
+    data.messages = [Messages(**m) for m in dump_data['messages']]
+    for msg in data.messages:
+        if msg.role == MessagesRole.ASSISTANT:
+            print()
+            data.console.print(Markdown(msg.content))
+            print()
+            
+    data.used_tokens = dump_data['used_tokens']
+
+@Command('chats', 'list')
+def chats_cmd(data: Data):
+    '''list saved dialogs'''
+    
+    dirpath = Path.home() / '.gigachat-dialogs'
+    if not dirpath.exists() or not os.listdir(dirpath):
+        data.console.print('[yellow]No saved chats found.[/yellow]')
+        return
+    
+    data.console.print('[bold color(140)]Saved chats:[/bold color(140)]')
+    for chat in sorted(os.listdir(dirpath)):
+        data.console.print(f' - {chat}')

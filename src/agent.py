@@ -2,7 +2,6 @@ import json
 
 from typing import Any
 
-from gigachat import GigaChat
 from gigachat.models import Chat, Messages, MessagesRole
 
 from rich.console import Console

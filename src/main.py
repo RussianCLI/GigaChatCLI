@@ -14,7 +14,6 @@ from prompt_toolkit.styles import Style
 
 from agent import send_message
 from commands import Command, CommandParser, clear_cmd
-from prompt import system_prompt
 from data import Data, dotenv_path
 
 def main():

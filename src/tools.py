@@ -74,7 +74,7 @@ mkdir_function = Function(
     description='Create a directory',
     parameters=FunctionParameters(
         type='object',
-        properties={
+        properties={ # type: ignore
             'path': {
                 'type': 'string',
                 'description': 'Relative or absolute path of new directory'
@@ -92,7 +92,7 @@ def write_tool(path: str, content: str) -> dict[str, Any]:
 def read_tool(path: str) -> dict[str, Any]:
     with open(path, 'r', encoding='utf-8') as f:
         content = f.read()
-    
+
     return {'content': content}
 
 def ls_tool(path: str) -> dict[str, Any]:

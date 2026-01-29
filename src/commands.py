@@ -55,9 +55,9 @@ class CommandParser:
 @Command('clear', 'reset')
 def clear_cmd(data: Data):
     '''clear the terminal and context'''
-    
+
     data.console.clear()
-    
+
     data.messages = [Messages(role=MessagesRole.SYSTEM, content=system_prompt)]
     data.used_tokens = 0
 
@@ -65,7 +65,7 @@ def clear_cmd(data: Data):
 def quit_cmd(data: Data):
     '''quit from GigaChatCLI'''
     
-    data.console.print('[color(135)]Bye-bye![/color(135)]')
+    data.console.print('[color(140)]Bye-bye![/color(140)]')
     return 1
 
 @Command('model')
@@ -167,12 +167,12 @@ def load_cmd(data: Data, *args):
 @Command('chats', 'list')
 def chats_cmd(data: Data):
     '''list saved dialogs'''
-    
+
     dirpath = Path.home() / '.gigachat-dialogs'
     if not dirpath.exists() or not os.listdir(dirpath):
         data.console.print('[yellow]No saved chats found.[/yellow]')
         return
-    
+
     data.console.print('[bold color(140)]Saved chats:[/bold color(140)]')
     for chat in sorted(os.listdir(dirpath)):
         data.console.print(f' - {chat}')

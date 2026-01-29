@@ -33,7 +33,7 @@ def main():
     completer = WordCompleter(command_list, ignore_case=True, sentence=True)
     
     style = Style.from_dict({
-        'completion-menu.completion': 'bg:default #eeeeee',
+        'completion-menu.completion': 'bg:default #aaaaaa',
         'completion-menu.completion.current': 'bg:default #af87d7',
         'scrollbar.background': 'bg:default',
         'scrollbar.button': 'bg:default',
@@ -44,11 +44,15 @@ def main():
     clear_cmd(data)
     
     while True:
-        data.console.print(f'[gray42] {(data.used_tokens / 1000):.1f}k tokens[/gray42]')
+        data.console.print(f'[gray50]{(data.used_tokens / 1000):.1f}k tokens[/gray50]')
+
         try:
             user_prompt = session.prompt(HTML('<b><style fg="#af87d7">> </style></b>'))
         except (KeyboardInterrupt, EOFError):
             break
+
+        if not user_prompt.strip():
+            continue
 
         if user_prompt.startswith('/'):
             if parser.parse(user_prompt[1:]):
@@ -56,11 +60,11 @@ def main():
             else:
                 data.console.print()
                 continue
-        
+
         data.messages.append(Messages(role=MessagesRole.USER, content=user_prompt))
-        
+
         data.messages, used_tokens = send_message(data)
-        
+
         data.used_tokens += used_tokens
 
 if __name__ == '__main__':

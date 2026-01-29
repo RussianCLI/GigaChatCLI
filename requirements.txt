@@ -2,3 +2,4 @@ gigachat
 python-dotenv
 rich
 ddgs
+prompt-toolkit

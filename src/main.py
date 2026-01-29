@@ -1,9 +1,16 @@
+import os
+
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 from gigachat import GigaChat
 from gigachat.models import Messages, MessagesRole
 
 from rich.console import Console
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.formatted_text import HTML
 
 from agent import send_message
 from commands import Command, CommandParser
@@ -26,19 +33,23 @@ def quit_cmd(client: GigaChat, console: Console):
 def main():
     global messages, tokens
     
-    load_dotenv()
+    load_dotenv(dotenv_path=Path.home() / '.gigachat')
     
     console = Console(highlight=False)
     client = GigaChat(verify_ssl_certs=False,
-                      model='GigaChat-2-Pro')
+                      model=os.getenv('GIGACHAT_MODEL'))
     
     parser = CommandParser(client, console)
+    session = PromptSession()
 
     clear_cmd(client, console)
     
     while True:
         console.print(f'[gray42] {(tokens / 1000):.1f}k tokens[/gray42]')
-        user_prompt = console.input('[bold color(135)]> [/bold color(135)]')
+        try:
+            user_prompt = session.prompt(HTML('<b><style fg="#af87d7">> </style></b>'))
+        except (KeyboardInterrupt, EOFError):
+            break
 
         if user_prompt.startswith('/'):
             if parser.parse(user_prompt[1:]):

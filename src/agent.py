@@ -6,16 +6,18 @@ from gigachat import GigaChat
 from gigachat.models import Chat, Messages, MessagesRole
 
 from rich.console import Console
-from rich.markdown import Markdown
-from rich.panel import Panel
 from rich.live import Live
+from rich.markdown import Markdown
 from rich.spinner import Spinner
+from rich.columns import Columns
 
 from tools import FUNCTIONS, FUNCTION_MAP, SAFE_FUNCTIONS
 
 console = Console()
 
 def ask_calling(tool_name: str, tool_args: dict[str, Any]) -> bool:
+    print('\033[1F\033[2K', end='')
+    
     strargs = {}
     for key, value in tool_args.items():
         strargs[key] = value if len(value) < 50 else value[47] + '...'
@@ -37,54 +39,73 @@ def ask_calling(tool_name: str, tool_args: dict[str, Any]) -> bool:
     return True
 
 def send_message(messages: list[Messages], client: GigaChat) -> tuple[list[Messages], int]:
-    spinner = Spinner('dots', text='[color(140)]Waiting for response...[/color(140)]')
-    panel = Panel(spinner, border_style='color(140)', title='Agent Status')
+    spinner = Spinner('dots', style='color(140)')
+    
+    usage = 0
     
     while True:
-        with Live(panel, refresh_per_second=10, transient=True):
-            chat = Chat(messages=messages,
-                        functions=FUNCTIONS)
+        chat = Chat(messages=messages,
+                    functions=FUNCTIONS)
             
-            response = client.chat(chat)
+        stream = client.stream(chat)
+
+        full_content = ''
+        pending_function_call = None
         
-        choice = response.choices[0]
-        message = choice.message
-        
-        if choice.finish_reason == 'function_call':
-            func_call = message.function_call
-            if func_call:
-                messages.append(message)
+        with Live(console=console, refresh_per_second=12, vertical_overflow="visible") as live:
+            live.update(Columns([spinner, '[bold] Thinking[/bold]']))
+            
+            for chunk in stream:
+                delta = chunk.choices[0].delta
                 
-                name = func_call.name
-                args = func_call.arguments or {}
-                
-                if not ask_calling(name, args):
-                    messages.append(Messages(
-                        role=MessagesRole.FUNCTION,
-                        name=name,
-                        content=json.dumps({'success': False, 'reason': 'User rejected the function.'})
-                    ))
-                    continue
-                
-                try:
-                    result = FUNCTION_MAP[func_call.name](**args)
+                if delta.content:
+                    if not full_content:
+                        print()
                     
-                    result['success'] = True
-                except Exception as e:
-                    result = {'success': False, 'error': str(e)}
+                    full_content += delta.content
+                    live.update(Markdown(full_content))
                 
+                if delta.function_call:
+                    pending_function_call = delta.function_call
+                
+                if chunk.usage:
+                    usage += chunk.usage.total_tokens
+            
+        if pending_function_call:
+            messages.append(Messages(
+                role=MessagesRole.ASSISTANT,
+                content=full_content,
+                function_call=pending_function_call
+            ))
+            
+            func_call = pending_function_call
+            
+            name = func_call.name
+            args = func_call.arguments or {}
+                    
+            if not ask_calling(name, args):
                 messages.append(Messages(
                     role=MessagesRole.FUNCTION,
                     name=name,
-                    content=json.dumps(result)
+                    content=json.dumps({'success': False, 'reason': 'User rejected the function.'})
                 ))
-
                 continue
+                
+            try:
+                result = FUNCTION_MAP[func_call.name](**args)
+                
+                result['success'] = True
+            except Exception as e:
+                result = {'success': False, 'error': str(e)}
+                
+            messages.append(Messages(
+                role=MessagesRole.FUNCTION,
+                name=name,
+                content=json.dumps(result)
+            ))
+
+            continue
         else:
-            messages.append(Messages(role=MessagesRole.ASSISTANT, content=message.content))
-            
+            messages.append(Messages(role=MessagesRole.ASSISTANT, content=full_content))
             print()
-            console.print(Markdown(message.content))
-            print()
-            
-            return messages, response.usage.total_tokens
+            return messages, usage

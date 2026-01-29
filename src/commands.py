@@ -42,7 +42,10 @@ class CommandParser:
             if name != cmd.name and name not in cmd.aliases:
                 continue
             
-            return cmd.func(self.data, *args)
+            try:
+                return cmd.func(self.data, *args)
+            except TypeError as e:
+                self.data.console.print(f'[bold][red]Error:[/bold] {e}[/red]')
         
         return 0
 
@@ -67,7 +70,8 @@ def model_cmd(data: Data, *args):
     '''change the model or show the current. model {name}.'''
     
     if not args:
-        data.console.print(f'Current model is [bold color(135)]{os.getenv("GIGACHAT_MODEL")}[/bold color(135)]')
+        current_model = os.getenv('GIGACHAT_MODEL') or 'GigaChat'
+        data.console.print(f'Current model is [bold color(135)]{current_model}[/bold color(135)]')
         return 0
     
     model = args[0]

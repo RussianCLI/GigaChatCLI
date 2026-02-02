@@ -15,11 +15,13 @@ from prompt_toolkit.styles import Style
 from agent import send_message
 from commands import Command, CommandParser, clear_cmd
 from data import Data, dotenv_path
+from styling import STYLING
 
 def main():
     load_dotenv(dotenv_path=dotenv_path)
     
-    console = Console(highlight=False)
+    console = Console(highlight=False,
+                      theme=STYLING)
     client = GigaChat(verify_ssl_certs=False,
                       model=os.getenv('GIGACHAT_MODEL'))
     data = Data(client, console, [], 0)

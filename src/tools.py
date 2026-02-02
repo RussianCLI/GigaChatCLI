@@ -62,7 +62,7 @@ search_function = Function(
         properties={  # type: ignore
             'query': {
                 'type': 'string',
-                'description': 'Query to search for.'
+                'description': 'Query to search for'
             },
         },
         required=['query'],
@@ -79,7 +79,23 @@ mkdir_function = Function(
                 'type': 'string',
                 'description': 'Relative or absolute path of new directory'
             }
-        }
+        },
+        required=['path'],
+    )
+)
+
+touch_function = Function(
+    name='touch',
+    description='Create a file',
+    parameters=FunctionParameters(
+        type='object',
+        properties={ # type: ignore
+            'path': {
+                'type': 'string',
+                'description': 'Relative or absolute path of new file'
+            }
+        },
+        required=['path'],
     )
 )
 
@@ -119,12 +135,19 @@ def mkdir_tool(path: str) -> dict[str, Any]:
     
     return {'path': path}
 
+def touch_tool(path: str) -> dict[str, Any]:
+    with open(path, 'x'):
+        pass
+    
+    return {'path': path}
+
 FUNCTIONS = [
     write_function,
     read_function,
     ls_function,
     search_function,
-    mkdir_function
+    mkdir_function,
+    touch_function
 ]
 
 FUNCTION_MAP = {
@@ -132,7 +155,8 @@ FUNCTION_MAP = {
     'read': read_tool,
     'ls': ls_tool,
     'search': search_tool,
-    'mkdir': mkdir_tool
+    'mkdir': mkdir_tool,
+    'touch': touch_tool
 }
 
 SAFE_FUNCTIONS = [

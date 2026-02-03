@@ -60,7 +60,6 @@ def main():
             if parser.parse(user_prompt[1:]):
                 break
             else:
-                data.console.print()
                 continue
 
         data.messages.append(Messages(role=MessagesRole.USER, content=user_prompt))

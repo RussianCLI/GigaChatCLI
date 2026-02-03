@@ -74,7 +74,7 @@ def model_cmd(data: Data, *args):
     
     if not args:
         current_model = os.getenv('GIGACHAT_MODEL') or 'GigaChat'
-        data.console.print(f'Current model is [bold color(135)]{current_model}[/bold color(135)]')
+        data.console.print(f'Current model is [bold color(135)]{current_model}[/bold color(135)]\n')
         return
     
     model = args[0]
@@ -82,7 +82,7 @@ def model_cmd(data: Data, *args):
     
     if model not in models:
         models_str = '\n'.join(models)
-        data.console.print(f'[red]No such model![/red] Models available:\n[color(135)]{models_str}[color(135)]')
+        data.console.print(f'[red]No such model![/red] Models available:\n[color(135)]{models_str}[color(135)]\n')
         return
     
     data.client = GigaChat(verify_ssl_certs=False,
@@ -92,7 +92,7 @@ def model_cmd(data: Data, *args):
             key_to_set='GIGACHAT_MODEL',
             value_to_set=model)
     
-    data.console.print(f'Successfully changed model to [bold]{model}[/bold] and saved to {dotenv_path}')
+    data.console.print(f'Successfully changed model to [bold]{model}[/bold] and saved to {dotenv_path}\n')
 
 @Command('help')
 def help_cmd(data: Data):
@@ -111,6 +111,7 @@ def help_cmd(data: Data):
         table.add_row(namestring, docstring)
     
     data.console.print(table)
+    print()
 
 @Command('save')
 def save_cmd(data: Data, *args):
@@ -134,20 +135,20 @@ def save_cmd(data: Data, *args):
     with open(filepath, 'w') as f:
         json.dump(dump_data, f, ensure_ascii=False, indent=4)
     
-    data.console.print(f'[bold][color(140)]Chat was successfully saved into [/bold]{dirpath / name}[/color(140)]')
+    data.console.print(f'[bold][color(140)]Chat was successfully saved into [/bold]{filepath}[/color(140)]\n')
 
 @Command('load', 'resume')
 def load_cmd(data: Data, *args):
     '''load a saved dialog. load {name}'''
     
     if not args:
-        data.console.print('[red]Usage: load {name}[/red]')
+        data.console.print('[red]Usage: load {name}[/red]\n')
         return
     name = args[0]
     
     filepath = Path.home() / '.gigachat-dialogs' / name
     if not filepath.exists():
-        data.console.print(f'[red]Chat "{name}" not found![/red]')
+        data.console.print(f'[red]Chat "{name}" not found![/red]\n')
         return
     
     with open(filepath, 'r') as f:
@@ -158,9 +159,22 @@ def load_cmd(data: Data, *args):
     data.messages = [Messages(**m) for m in dump_data['messages']]
     for msg in data.messages:
         if msg.role == MessagesRole.ASSISTANT:
-            print()
-            data.console.print(Markdown(msg.content))
-            print()
+            if msg.function_call:
+                tool_name = msg.function_call.name
+                tool_args = msg.function_call.arguments or {}
+
+                strargs = {}
+                for key, value in tool_args.items():
+                    str_value = str(value)
+                    strargs[key] = str_value if len(str_value) < 50 else str_value[:47] + '...'
+
+                data.console.print(f'[green]✓[/green] [bold cyan]{tool_name}[/bold cyan] [gray42]{strargs}[/gray42]')
+            else:
+                print()
+                data.console.print(Markdown(msg.content))
+                print()
+        elif msg.role == MessagesRole.USER:
+            data.console.print(f'[color(140)]> [/color(140)]{msg.content}')
             
     data.used_tokens = dump_data['used_tokens']
 
@@ -170,9 +184,25 @@ def chats_cmd(data: Data):
 
     dirpath = Path.home() / '.gigachat-dialogs'
     if not dirpath.exists() or not os.listdir(dirpath):
-        data.console.print('[yellow]No saved chats found.[/yellow]')
+        data.console.print('[yellow]No saved chats found.[/yellow]\n')
         return
 
     data.console.print('[bold color(140)]Saved chats:[/bold color(140)]')
     for chat in sorted(os.listdir(dirpath)):
         data.console.print(f' - {chat}')
+    print()
+
+@Command('remove', 'delete')
+def remove_cmd(data: Data, *args):
+    '''remove the current dialog. remove {name}'''
+    
+    if not args:
+        data.console.print('[red]Usage: remove {name}[/red]\n')
+        return
+    name = args[0]
+    filepath = Path.home() / '.gigachat-dialogs' / name
+    
+    os.remove(filepath)
+    
+    data.console.print(f'[bold color(140)]Chat {name} was successfully removed[/bold color(140)]\n')
+

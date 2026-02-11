@@ -1,4 +1,6 @@
 import os
+import subprocess
+import shlex
 
 from typing import Any
 
@@ -99,6 +101,36 @@ touch_function = Function(
     )
 )
 
+execute_function = Function(
+    name='execute',
+    description='Execute a command on user\'s computer',
+    parameters=FunctionParameters(
+        type='object',
+        properties={ # type: ignore
+            'command': {
+                'type': 'string',
+                'description': 'Command to execute'
+            }
+        },
+        required=['command'],
+    )
+)
+
+remove_function = Function(
+    name='remove',
+    description='Remove the file',
+    parameters=FunctionParameters(
+        type='object',
+        properties={ # type: ignore
+            'path': {
+                'type': 'string',
+                'description': 'Relative or absolute path of file to remove'
+            }
+        },
+        required=['path'],
+    )
+)
+
 def write_tool(path: str, content: str) -> dict[str, Any]:
     with open(path, 'w', encoding='utf-8') as f:
         f.write(content)
@@ -141,13 +173,46 @@ def touch_tool(path: str) -> dict[str, Any]:
     
     return {'path': path}
 
+def execute_tool(command: str) -> dict[str, Any]:
+    try:
+        result = subprocess.run(
+            shlex.split(command.strip()),
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return {
+            'stdout': result.stdout,
+            'stderr': result.stderr,
+            'returncode': result.returncode
+        }
+    except subprocess.CalledProcessError as e:
+        return {
+            'error': True,
+            'returncode': e.returncode,
+            'stdout': e.stdout,
+            'stderr': e.stderr
+        }
+    except Exception as e:
+        return {
+            'error': True,
+            'message': str(e)
+        }
+
+def remove_tool(path: str) -> dict[str, Any]:
+    os.remove(path)
+
+    return {'path': path}
+
 FUNCTIONS = [
     write_function,
     read_function,
     ls_function,
     search_function,
     mkdir_function,
-    touch_function
+    touch_function,
+    execute_function,
+    remove_function
 ]
 
 FUNCTION_MAP = {
@@ -156,7 +221,9 @@ FUNCTION_MAP = {
     'ls': ls_tool,
     'search': search_tool,
     'mkdir': mkdir_tool,
-    'touch': touch_tool
+    'touch': touch_tool,
+    'execute': execute_tool,
+    'remove': remove_tool
 }
 
 SAFE_FUNCTIONS = [

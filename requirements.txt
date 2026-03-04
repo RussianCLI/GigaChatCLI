@@ -3,3 +3,5 @@ python-dotenv
 rich
 ddgs
 prompt-toolkit
+requests
+beautifulsoup4

@@ -78,7 +78,11 @@ def model_cmd(data: Data, *args):
         return
     
     model = args[0]
-    models = [model.id_ for model in data.client.get_models().data]
+    try:
+        models = [model.id_ for model in data.client.get_models().data]
+    except Exception as e:
+         data.console.print(f'[red]Error fetching models: {e}[/red]')
+         return
     
     if model not in models:
         models_str = '\n'.join(models)
@@ -205,4 +209,3 @@ def remove_cmd(data: Data, *args):
     os.remove(filepath)
     
     data.console.print(f'[bold color(140)]Chat {name} was successfully removed[/bold color(140)]\n')
-

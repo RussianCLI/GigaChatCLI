@@ -1,8 +1,10 @@
 import os
+import glob
 import subprocess
-import shlex
+import requests
 
 from typing import Any
+from bs4 import BeautifulSoup
 
 from gigachat.models import Function, FunctionParameters
 from ddgs import DDGS
@@ -131,9 +133,58 @@ remove_function = Function(
     )
 )
 
+web_fetch_function = Function(
+    name='web_fetch',
+    description='Fetch content from a URL',
+    parameters=FunctionParameters(
+        type='object',
+        properties={ # type: ignore
+            'url': {
+                'type': 'string',
+                'description': 'URL to fetch content from'
+            }
+        },
+        required=['url'],
+    )
+)
+
+glob_function = Function(
+    name='glob',
+    description='Find files matching a pattern',
+    parameters=FunctionParameters(
+        type='object',
+        properties={ # type: ignore
+            'pattern': {
+                'type': 'string',
+                'description': 'Glob pattern (e.g., "**/*.py")'
+            }
+        },
+        required=['pattern'],
+    )
+)
+
+grep_function = Function(
+    name='grep',
+    description='Search for a pattern in files recursively',
+    parameters=FunctionParameters(
+        type='object',
+        properties={ # type: ignore
+            'pattern': {
+                'type': 'string',
+                'description': 'Regex pattern to search for'
+            },
+            'path': {
+                'type': 'string',
+                'description': 'Directory path to search in (default: ".")'
+            }
+        },
+        required=['pattern'],
+    )
+)
+
 def write_tool(path: str, content: str) -> dict[str, Any]:
     with open(path, 'w', encoding='utf-8') as f:
-        f.write(content)
+        f.write(content.replace('$,', ''))
         
     return {'path': path}
 
@@ -176,10 +227,11 @@ def touch_tool(path: str) -> dict[str, Any]:
 def execute_tool(command: str) -> dict[str, Any]:
     try:
         result = subprocess.run(
-            shlex.split(command.strip()),
+            command.strip(),
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            shell=True
         )
         return {
             'stdout': result.stdout,
@@ -204,6 +256,44 @@ def remove_tool(path: str) -> dict[str, Any]:
 
     return {'path': path}
 
+def web_fetch_tool(url: str) -> dict[str, Any]:
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+            
+        text = soup.get_text(separator=' ', strip=True)
+        return {'content': text[:10000]} # Limit output size
+    except Exception as e:
+        return {'error': str(e)}
+
+def glob_tool(pattern: str) -> dict[str, Any]:
+    files = glob.glob(pattern, recursive=True)
+    return {'files': files}
+
+def grep_tool(pattern: str, path: str = '.') -> dict[str, Any]:
+    try:
+        command = ['grep', '-r', pattern, path]
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False 
+        )
+        if result.returncode == 0:
+            return {'matches': result.stdout}
+        elif result.returncode == 1:
+            return {'matches': 'No matches found'}
+        else:
+            return {'error': result.stderr}
+    except Exception as e:
+        return {'error': str(e)}
+
+
 FUNCTIONS = [
     write_function,
     read_function,
@@ -212,7 +302,10 @@ FUNCTIONS = [
     mkdir_function,
     touch_function,
     execute_function,
-    remove_function
+    remove_function,
+    web_fetch_function,
+    glob_function,
+    grep_function
 ]
 
 FUNCTION_MAP = {
@@ -223,11 +316,17 @@ FUNCTION_MAP = {
     'mkdir': mkdir_tool,
     'touch': touch_tool,
     'execute': execute_tool,
-    'remove': remove_tool
+    'remove': remove_tool,
+    'web_fetch': web_fetch_tool,
+    'glob': glob_tool,
+    'grep': grep_tool
 }
 
 SAFE_FUNCTIONS = [
     'ls',
     'read',
-    'search'
+    'search',
+    'web_fetch',
+    'glob',
+    'grep'
 ]

@@ -1,6 +1,7 @@
 # GigaChatCLI
 AI-agent based on GigaChat model.
 
+
 ## Installation
 1. Clone the repo: `git clone https://github.com/RussianCLI/GigaChatCLI && cd GigaChatCLI`
 2. Copy .gigachat.example into your home directory `cp .gigachat.example ~/.gigachat`

@@ -24,7 +24,7 @@ def main():
                       theme=STYLING)
     client = GigaChat(verify_ssl_certs=False,
                       model=os.getenv('GIGACHAT_MODEL'))
-    data = Data(client, console, [], 0)
+    data = Data(client, console, [], 0, False)
     
     parser = CommandParser(data)
     
@@ -46,7 +46,12 @@ def main():
     clear_cmd(data)
     
     while True:
-        data.console.print(f'[gray50]{(data.used_tokens / 1000):.1f}k tokens[/gray50]')
+        status = f'[gray50]{(data.used_tokens / 1000):.1f}k tokens[/gray50]'
+        
+        if data.autonomous:
+            status += " | [yellow]⚙️ autonomus[/yellow]"
+        
+        data.console.print(status)
 
         try:
             user_prompt = session.prompt(HTML('<b><style fg="#af87d7">> </style></b>'))

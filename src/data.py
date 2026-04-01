@@ -13,5 +13,6 @@ class Data:
     console: Console
     messages: list[Messages]
     used_tokens: int
+    autonomous: bool
 
 dotenv_path = Path.home() / '.gigachat'

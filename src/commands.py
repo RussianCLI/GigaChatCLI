@@ -209,3 +209,10 @@ def remove_cmd(data: Data, *args):
     os.remove(filepath)
     
     data.console.print(f'[bold color(140)]Chat {name} was successfully removed[/bold color(140)]\n')
+
+@Command('auto', 'autonomous')
+def auto_cmd(data: Data, *args):
+    '''switch the autonomous mode (agent won't ask for calling functions)'''
+    
+    print()
+    data.autonomous = not data.autonomous

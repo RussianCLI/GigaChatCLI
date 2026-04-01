@@ -13,7 +13,7 @@ from rich.columns import Columns
 from tools import FUNCTIONS, FUNCTION_MAP, SAFE_FUNCTIONS
 from data import Data
 
-def ask_calling(console: Console, tool_name: str, tool_args: dict[str, Any]) -> bool:
+def ask_calling(console: Console, tool_name: str, tool_args: dict[str, Any], autonomous: bool) -> bool:
     print('\033[1F\033[2K', end='')
 
     strargs = {}
@@ -23,7 +23,7 @@ def ask_calling(console: Console, tool_name: str, tool_args: dict[str, Any]) -> 
 
     calling_str = f'[bold cyan]{tool_name}[/bold cyan] [gray42]{strargs}[/gray42]'
 
-    if tool_name not in SAFE_FUNCTIONS:
+    if tool_name not in SAFE_FUNCTIONS and not autonomous:
         print()
         console.print(calling_str)
         accept = console.input('Accept? (y/n): ').lower() == 'y'
@@ -82,7 +82,7 @@ def send_message(data: Data) -> tuple[list[Messages], int]:
             name = func_call.name
             args = func_call.arguments or {}
 
-            if not ask_calling(data.console, name, args):
+            if not ask_calling(data.console, name, args, data.autonomous):
                 data.messages.append(Messages(
                     role=MessagesRole.FUNCTION,
                     name=name,

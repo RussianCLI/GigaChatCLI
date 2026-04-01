@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from gigachat import GigaChat
 from gigachat import Messages

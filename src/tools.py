@@ -133,6 +133,24 @@ remove_function = Function(
     )
 )
 
+rename_function = Function(
+    name='rename',
+    description='Rename the file or directory',
+    parameters=FunctionParameters(
+        type='object',
+        properties={
+            'path': {
+                'type': 'string',
+                'description': 'Relative or absolute path of file or directory'
+            },
+            'new_path': {
+                'type': 'string',
+                'description': 'New path of file or directory'
+            }
+        }
+    )
+)
+
 web_fetch_function = Function(
     name='web_fetch',
     description='Fetch content from a URL',
@@ -256,6 +274,11 @@ def remove_tool(path: str) -> dict[str, Any]:
 
     return {'path': path}
 
+def rename_tool(path: str, new_path: str) -> dict[str, Any]:
+    os.rename(path, new_path)
+    
+    return {'new_path': new_path}
+
 def web_fetch_tool(url: str) -> dict[str, Any]:
     try:
         response = requests.get(url)
@@ -303,6 +326,7 @@ FUNCTIONS = [
     touch_function,
     execute_function,
     remove_function,
+    rename_function,
     web_fetch_function,
     glob_function,
     grep_function
@@ -317,6 +341,7 @@ FUNCTION_MAP = {
     'touch': touch_tool,
     'execute': execute_tool,
     'remove': remove_tool,
+    'rename': rename_tool,
     'web_fetch': web_fetch_tool,
     'glob': glob_tool,
     'grep': grep_tool
